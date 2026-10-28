@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Department {
+  id          Int         @id @default(autoincrement())
+  code        String      @unique
+  name        String      @unique
+  description String?
+  createdAt   DateTime    @default(now())
+  users       User[]
+  complaints  Complaint[]
+}
+
+model User {
+  id            Int               @id @default(autoincrement())
+  email         String            @unique
+  passwordHash  String
+  name          String
+  role          String            @default("STUDENT")
+  phone         String?
+  departmentId  Int?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  department    Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  complaints    Complaint[]
+  updates       ComplaintUpdate[]
+  bookings      Booking[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@index([role])
+  @@index([departmentId])
+}
+
+model Category {
+  id          Int         @id @default(autoincrement())
+  name        String      @unique
+  description String?
+  createdAt   DateTime    @default(now())
+  complaints  Complaint[]
+}
+
+model Complaint {
+  id           Int               @id @default(autoincrement())
+  title        String
+  description  String
+  status       String            @default("OPEN")
+  priority     String            @default("MEDIUM")
+  userId       Int
+  categoryId   Int
+  departmentId Int?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  resolvedAt   DateTime?
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category     Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  department   Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  updates      ComplaintUpdate[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([userId])
+  @@index([categoryId])
+  @@index([departmentId])
+}
+
+model ComplaintUpdate {
+  id          Int       @id @default(autoincrement())
+  complaintId Int
+  userId      Int
+  comment     String
+  statusFrom  String?
+  statusTo    String?
+  createdAt   DateTime  @default(now())
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId])
+}
+
+model Resource {
+  id          Int       @id @default(autoincrement())
+  name        String
+  type        String
+  location    String?
+  capacity    Int?
+  status      String    @default("AVAILABLE")
+  description String?
+  createdAt   DateTime  @default(now())
+  bookings    Booking[]
+
+  @@index([type])
+  @@index([status])
+}
+
+model Booking {
+  id         Int      @id @default(autoincrement())
+  resourceId Int
+  userId     Int
+  startTime  DateTime
+  endTime    DateTime
+  purpose    String?
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([resourceId])
+  @@index([userId])
+  @@index([status])
+  @@index([startTime, endTime])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  action    String
+  entity    String
+  entityId  Int?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}

@@ -1,0 +1,47 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: campusconnect-mysql
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password --log-bin-trust-function-creators=1
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_pass}
+      MYSQL_DATABASE: campusconnect
+      MYSQL_USER: campus
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-campus_pass}
+    ports:
+      # Bound to localhost only so the DB is not exposed to the internet
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root_pass}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: campusconnect-app
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql://campus:${MYSQL_PASSWORD:-campus_pass}@mysql:3306/campusconnect
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://campusconnect.fustin.top}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-me-to-a-long-random-secret}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: campus
+      DB_PASSWORD: ${MYSQL_PASSWORD:-campus_pass}
+      DB_NAME: campusconnect
+    ports:
+      - "3000:3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:

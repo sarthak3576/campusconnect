@@ -1,0 +1,23 @@
+# Caddyfile - CampusConnect
+# Add this site block to your VPS Caddy config (/etc/caddy/Caddyfile),
+# or run Caddy with this file. Caddy automatically obtains and renews a
+# Let's Encrypt TLS certificate for the domain.
+#
+# Prerequisite: create a DNS A record
+#   campusconnect.fustin.top  ->  <VPS-IP>
+
+campusconnect.fustin.top {
+    encode gzip zstd
+
+    reverse_proxy localhost:3000
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}
+
+www.campusconnect.fustin.top {
+    redir https://campusconnect.fustin.top{uri} permanent
+}

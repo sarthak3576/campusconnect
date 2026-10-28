@@ -1,0 +1,188 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  STUDENT
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ResourceType {
+  ROOM
+  EQUIPMENT
+  LAB
+  VEHICLE
+  SPORT
+}
+
+enum ResourceStatus {
+  AVAILABLE
+  MAINTENANCE
+  UNAVAILABLE
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+model Department {
+  id          Int         @id @default(autoincrement())
+  code        String      @unique @db.VarChar(20)
+  name        String      @unique @db.VarChar(100)
+  description String?     @db.Text
+  createdAt   DateTime    @default(now())
+  users       User[]
+  complaints  Complaint[]
+}
+
+model User {
+  id           Int               @id @default(autoincrement())
+  email        String            @unique @db.VarChar(255)
+  passwordHash String            @db.VarChar(255)
+  name         String            @db.VarChar(100)
+  role         Role              @default(STUDENT)
+  phone        String?           @db.VarChar(20)
+  departmentId Int?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  department   Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  complaints   Complaint[]
+  updates      ComplaintUpdate[]
+  bookings     Booking[]
+  notifications Notification[]
+  auditLogs    AuditLog[]
+
+  @@index([role])
+  @@index([departmentId])
+}
+
+model Category {
+  id          Int         @id @default(autoincrement())
+  name        String      @unique @db.VarChar(100)
+  description String?     @db.Text
+  createdAt   DateTime    @default(now())
+  complaints  Complaint[]
+}
+
+model Complaint {
+  id           Int               @id @default(autoincrement())
+  title        String            @db.VarChar(200)
+  description  String            @db.Text
+  status       ComplaintStatus   @default(OPEN)
+  priority     Priority          @default(MEDIUM)
+  userId       Int
+  categoryId   Int
+  departmentId Int?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  resolvedAt   DateTime?
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category     Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  department   Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  updates      ComplaintUpdate[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([userId])
+  @@index([categoryId])
+  @@index([departmentId])
+}
+
+model ComplaintUpdate {
+  id          Int             @id @default(autoincrement())
+  complaintId Int
+  userId      Int
+  comment     String          @db.Text
+  statusFrom  ComplaintStatus?
+  statusTo    ComplaintStatus?
+  createdAt   DateTime        @default(now())
+  complaint   Complaint       @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId])
+}
+
+model Resource {
+  id          Int           @id @default(autoincrement())
+  name        String        @db.VarChar(150)
+  type        ResourceType
+  location    String?       @db.VarChar(150)
+  capacity    Int?
+  status      ResourceStatus @default(AVAILABLE)
+  description String?       @db.Text
+  createdAt   DateTime      @default(now())
+  bookings    Booking[]
+
+  @@index([type])
+  @@index([status])
+}
+
+model Booking {
+  id         Int           @id @default(autoincrement())
+  resourceId Int
+  userId     Int
+  startTime  DateTime
+  endTime    DateTime
+  purpose    String?       @db.VarChar(255)
+  status     BookingStatus @default(PENDING)
+  createdAt  DateTime      @default(now())
+  resource   Resource      @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([resourceId])
+  @@index([userId])
+  @@index([status])
+  @@index([startTime, endTime])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String   @db.VarChar(150)
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  action    String   @db.VarChar(100)
+  entity    String   @db.VarChar(100)
+  entityId  Int?
+  ipAddress String?  @db.VarChar(45)
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
